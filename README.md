@@ -16,18 +16,34 @@ node server.js
 ```
 
 Then open **http://127.0.0.1:5170** in the browser.
-
-The server binds to `127.0.0.1` only, so nothing on your network can reach it.
+The server binds to `127.0.0.1` by default, so nothing on your network can reach it.
 Stop it with Ctrl+C.
-
 **Admin passphrase** (first run only, change it whenever you like):
-
 ```bash
 RTZENE_ADMIN_PASS=yournewpass node server.js
 ```
-
-The default on a fresh database is `rtzene`. You open the admin panel from the
-**You** tab.
+The default on a fresh database is `rtzene`. You open the admin panel from the **You** tab.
+### Showing it to other people
+A local server is not reachable from outside the phone, so a share link needs a tunnel:
+```bash
+/tmp/cloudflared tunnel --url http://127.0.0.1:5170 --no-autoupdate
+```
+It prints a `https://*.trycloudflare.com` address that works anywhere. Two honest
+caveats: a quick tunnel has **no uptime guarantee** and the address **changes every
+time you restart it**, so it is a demo link, not a home for the app.
+For a host that can bind publicly:
+```bash
+HOST=0.0.0.0 PORT=10000 node server.js
+```
+`HOST` defaults to loopback, so the app is private unless you say otherwise. On a
+public host the session cookie is marked `Secure` automatically.
+### Why not Render (tried, blocked)
+Render was the first choice and the deploy fails **before any code runs**:
+`POST https://api.render.com/v1/services` returns **HTTP 402** with
+`Payment information is required to complete this request` — even for the free plan.
+No amount of payload fixing helps; a card has to be added at
+`https://dashboard.render.com/billing` first. The tunnel above is what actually works
+without a card.
 
 ---
 
