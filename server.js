@@ -17,7 +17,11 @@ const crypto = require('node:crypto');
 const db = require('./lib/db');
 
 const PORT = Number(process.env.PORT || 5170);
-const HOST = '127.0.0.1';
+/* Loopback by default so a phone preview is never exposed to the LAN. A host
+   (Render, Fly, a tunnel) must opt in explicitly by setting HOST=0.0.0.0 —
+   it is never the default, so a forgotten preview cannot leak. */
+const HOST = process.env.HOST || '127.0.0.1';
+const SELF_HOSTED = HOST !== '127.0.0.1';
 const PUBLIC = path.join(__dirname, 'public');
 
 db.seed();
@@ -103,8 +107,11 @@ function ctx(req) {
 }
 
 function setSession(res, token) {
+  /* Secure on a public host so the cookie is never sent over plain HTTP there.
+     Left off on loopback because a phone preview over http://127.0.0.1 would
+     otherwise drop the cookie and look logged out. */
   res.setHeader('set-cookie',
-    `rtzene_session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000`);
+    `rtzene_session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000${SELF_HOSTED ? '; Secure' : ''}`);
 }
 
 /* -------------------------------------------------------------------- views */
@@ -458,7 +465,9 @@ server.listen(PORT, HOST, () => {
   const s = db.stats();
   console.log(`RT ZENE running → http://${HOST}:${PORT}`);
   console.log(`codes ${s.codes_total} · live ${s.codes_live} · redeemed ${s.redeemed} · messages ${s.messages}`);
-  console.log('bound to loopback only. Ctrl+C to stop.');
+  console.log(SELF_HOSTED
+    ? `bound to ${HOST} — public host, HTTPS and real sign-in required.`
+    : 'bound to loopback only. Ctrl+C to stop.');
 });
 
 for (const sig of ['SIGINT', 'SIGTERM']) {
