@@ -478,9 +478,10 @@ function renderYou() {
     </li>`).join('');
 
   $('#admin-gate').innerHTML = S.me.is_admin
-    ? '<p class="hint hint--good">Admin haath me hai. Codes banao, pause karo, chat me bhejo.</p>'
-    : `<span class="field__label">Admin passphrase</span>
-       <input type="password" id="pass-input" placeholder="Passphrase daalo" autocomplete="off">
+    ? '<p class="hint hint--good">Admin khula hai. Upar shield icon se Admin panel kholo.</p>'
+    : `<p class="hint">Admin banne ke liye owner ka passphrase chahiye. Sahi passphrase daalne par admin panel khul jayega.</p>
+       <span class="field__label">Admin passphrase</span>
+       <input type="password" id="pass-input" placeholder="Passphrase daalo" autocomplete="current-password">
        <button class="btn btn--go" type="button" id="pass-go">Admin kholo</button>`;
 }
 
@@ -494,6 +495,13 @@ function renderAdmin() {
   ];
   $('#admin-stats').innerHTML = cells.map(([n, k]) =>
     `<div class="stat"><div class="stat__n">${n ?? 0}</div><div class="stat__k">${esc(k)}</div></div>`).join('');
+  /* Community scoping on a new code. The owner can drop a code anywhere; an
+     empty option means "any community" (legacy, visible to everyone). */
+  const sel = $('#code-community');
+  if (sel && sel.options.length === 0) {
+    sel.innerHTML = '<option value="">Sabhi communities (kisi se bhi claim)</option>' +
+      S.communities.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
+  }
 
   const st = (c) => 'state--' + c.state.replace(' ', '');
   $('#admin-codes').innerHTML = S.adminCodes.map((c) => `
@@ -963,6 +971,7 @@ function wire() {
       body: {
         code: fd.get('code'), reward: fd.get('reward'), value: Number(fd.get('value')), note: fd.get('note'),
         maxUses: Number(fd.get('maxUses')), hours: Number(fd.get('hours')),
+        communityId: fd.get('communityId') || null,
       },
     });
     box.hidden = false;

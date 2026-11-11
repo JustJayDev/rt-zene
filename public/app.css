@@ -408,7 +408,7 @@ input, textarea { font: inherit; color: inherit; }
 }
 .tray__key, .tray__send {
   display: grid; place-items: center;
-  width: 42px; height: 42px;
+  width: 44px; height: 44px;
   flex: none;
   border-radius: var(--r-mid);
 }
@@ -455,7 +455,8 @@ input, textarea { font: inherit; color: inherit; }
 .field { display: flex; flex-direction: column; gap: 5px; }
 .field__label { font-size: 12.5px; color: var(--ash); }
 
-.field input, .field textarea, .card input, .card textarea {
+.field input, .field textarea, .card input, .card textarea,
+.field select, .card select {
   padding: 10px 12px;
   background: var(--graphite);
   border: 1px solid var(--hair);
@@ -464,8 +465,9 @@ input, textarea { font: inherit; color: inherit; }
   font-size: 15px;
   resize: vertical;
 }
-.field input:focus, .field textarea:focus,
-.card input:focus, .card textarea:focus { border-color: var(--ash); }
+.field input:focus, .field textarea:focus, .field select:focus,
+.card input:focus, .card textarea:focus, .card select:focus { border-color: var(--ash); }
+.field select, .card select { color: var(--chalk); font-family: inherit; }
 
 .field input.mono, .card input.mono { letter-spacing: .06em; text-transform: uppercase; }
 
@@ -600,7 +602,7 @@ input, textarea { font: inherit; color: inherit; }
 
 .icon-btn {
   display: grid; place-items: center;
-  width: 32px; height: 32px;
+  width: 40px; height: 40px;
   border: 1px solid var(--hair);
   border-radius: var(--r-tight);
   color: var(--ash);
