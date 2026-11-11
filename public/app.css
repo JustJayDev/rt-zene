@@ -584,6 +584,10 @@ input, textarea { font: inherit; color: inherit; }
 .state--live   { border-color: var(--marigold); color: var(--marigold); }
 .state--paused { border-color: var(--hair); color: var(--chalk); }
 .state--expired, .state--usedup { color: #8a919b; }
+/* A payout waiting on the owner is amber, not grey: grey means "nothing to do
+   here", amber means "this needs a decision". Rejected reads as spent. */
+.state--pending  { border-color: var(--marigold); color: var(--marigold); }
+.state--rejected { border-color: var(--hair-soft); color: var(--ash); }
 
 .meter {
   font-family: var(--t-mono);
@@ -810,7 +814,167 @@ input, textarea { font: inherit; color: inherit; }
 .pane-hint p { margin: 0; max-width: 30ch; }
 @media (max-width: 899px) { .pane-hint { display: none !important; } }
 .pane-hint[hidden] { display: none !important; }
+/* ------------------------------------------------------------ communities */
 
+/* Inbox: community rows read louder than DM rows — squared tile, own block. */
+.rows--com { border-bottom: 1px solid var(--hair-soft); margin-bottom: 4px; }
+.row--com .com-tile { display: grid; place-items: center; flex: none; }
+.row--com .com-tile .av { border-radius: var(--r-wide); }
+.row--com .row__title { font-weight: 700; }
+
+/* Community hub header — flat band, accent only on the left edge. */
+.com-head { padding: 18px var(--pad) 6px; }
+.com-banner {
+  display: flex; align-items: center; gap: 14px;
+  padding: 16px;
+  background: var(--slate);
+  border: 1px solid var(--hair);
+  border-left: 3px solid hsl(var(--h, 42) 52% 58%);
+  border-radius: var(--r-mid);
+}
+.av--lg { width: 56px; height: 56px; font-size: 19px; border-radius: var(--r-wide); }
+.com-name { font-size: 18px; font-weight: 800; letter-spacing: -.01em; }
+.com-tag { font-size: 13px; color: var(--ash); margin-top: 2px; }
+.com-meta {
+  font-family: var(--t-mono); font-size: 10.5px;
+  color: var(--ash); margin-top: 6px; text-transform: capitalize;
+}
+
+/* Announcement rows: the megaphone is the tell, so it gets a real slot. */
+.row--ann .ann-ic {
+  display: grid; place-items: center;
+  width: 44px; height: 44px; flex: none;
+  color: var(--marigold);
+  background: var(--rise);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-mid);
+}
+.pill--lock {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-family: var(--t-mono); font-size: 9px;
+  color: var(--ash); border-color: var(--hair);
+}
+.pill--lock .ic { width: 10px; height: 10px; }
+
+/* Thread banner inside an announcement channel. */
+.ann-note {
+  display: flex; align-items: flex-start; gap: 9px;
+  margin: 6px 0 12px;
+  padding: 10px 12px;
+  font-size: 12.5px; line-height: 1.5;
+  color: var(--ash);
+  background: var(--slate);
+  border: 1px solid var(--hair);
+  border-left: 2px solid var(--marigold);
+  border-radius: var(--r-tight);
+}
+.ann-note .ic { width: 15px; height: 15px; flex: none; color: var(--marigold); margin-top: 1px; }
+.ann-note b { color: var(--chalk); }
+
+/* Members list on the hub. */
+.people { list-style: none; padding: 0 var(--pad); }
+.person {
+  display: flex; align-items: center; gap: 11px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--hair-soft);
+}
+.person:last-child { border-bottom: 0; }
+.person__mid { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.person__name { font-size: 14.5px; font-weight: 600; }
+.person__sub { font-family: var(--t-mono); font-size: 11px; color: var(--ash); }
+
+/* Locked composer replacement for members in an announcement channel. */
+.tray--locked {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 14px var(--pad);
+  font-size: 12.5px; color: var(--ash);
+  background: var(--slate);
+  border-top: 1px solid var(--hair);
+}
+.tray--locked .ic { width: 14px; height: 14px; }
+.tray--locked[hidden] { display: none; }
+
+/* ----------------------------------------------------------- wallet + payouts */
+/* Wallet headline: big number, mono so digits don't jitter as balance changes. */
+.wallet {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 14px;
+  align-items: center;
+  margin: var(--pad) var(--pad) 14px;
+  padding: 16px;
+  background: var(--slate);
+  border: 1px solid var(--hair);
+  border-left: 3px solid var(--marigold);
+  border-radius: var(--r-mid);
+}
+.wallet__main { display: flex; flex-direction: column; min-width: 0; }
+.wallet__label {
+  font-family: var(--t-mono);
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ash);
+}
+.wallet__amt {
+  font-family: var(--t-mono);
+  font-size: 30px;
+  font-weight: 500;
+  line-height: 1.15;
+  color: var(--chalk);
+  font-variant-numeric: tabular-nums;
+}
+.wallet__sub { font-size: 12px; color: var(--ash); }
+.wallet__side { display: flex; flex-direction: column; gap: 8px; text-align: right; }
+.wallet__mini { display: flex; flex-direction: column; }
+.wallet__mini b {
+  font-family: var(--t-mono);
+  font-size: 14px;
+  color: var(--marigold);
+  font-variant-numeric: tabular-nums;
+}
+.wallet__mini span { font-size: 10.5px; color: var(--ash); }
+/* Quick amount chips — one tap to pick a valid Play denomination. */
+.chips { display: flex; flex-wrap: wrap; gap: 7px; margin: 10px 0 4px; }
+.chips[hidden] { display: none !important; }
+.chip {
+  font-family: var(--t-mono);
+  font-size: 12px;
+  padding: 7px 12px;
+  color: var(--chalk);
+  background: var(--rise);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-tight);
+  cursor: pointer;
+  transition: border-color var(--fast) var(--ease), color var(--fast) var(--ease);
+}
+.chip:hover, .chip.is-on { border-color: var(--marigold); color: var(--marigold); }
+.chip.is-on { background: color-mix(in srgb, var(--marigold) 12%, var(--rise)); }
+/* Rejected rows read quieter; pending rows carry one amber edge. "approved" is a
+   real status in the schema, so it gets a rule too rather than falling through. */
+.entry--pending, .entry--approved { border-left: 2px solid var(--marigold); }
+.entry--rejected { opacity: .62; }
+.entry--delivered .entry__code { color: var(--marigold); }
+/* Text-input sheet (admin pasting a Play code, reject reason). */
+.sheet__form { display: flex; flex-direction: column; gap: 9px; padding: 4px 0 0; }
+.sheet__form input, .sheet__form textarea {
+  width: 100%;
+  padding: 11px 12px;
+  font-size: 15px;
+  color: var(--chalk);
+  background: var(--graphite);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-tight);
+}
+.sheet__form input:focus, .sheet__form textarea:focus {
+  outline: none;
+  border-color: var(--marigold);
+}
+.sheet__acts { display: flex; gap: 9px; margin-top: 4px; }
+.sheet__acts .btn { flex: 1; }
+@media (max-width: 380px) {
+  .wallet { grid-template-columns: 1fr; }
+  .wallet__side { flex-direction: row; justify-content: space-between; text-align: left; }
+}
 /* -------------------------------------------------------------- scrollbar */
-
 .view::-webkit-scrollbar, .thread::-webkit-scrollbar { width: 0; }

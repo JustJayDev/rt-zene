@@ -113,12 +113,18 @@ function bootstrap(user) {
   const me = db.publicUser(user);
   return {
     me,
+    communities: db.listCommunities(user.id),
     chats: db.listChats(user.id),
     statuses: db.activeStatuses(),
-    codes: db.listCodes(!!user.is_admin),
+    codes: user.is_admin ? db.listCodes(true) : db.listCodesForViewer(user.id),
     my_redemptions: db.myRedemptions(user.id),
     stats: db.stats(),
+    wallet: db.payoutSummary(user.id),
+    wallet_history: db.walletHistory(user.id),
+    my_payouts: db.listPayouts(user.id),
     ledger: user.is_admin ? db.codeLedger() : [],
+    all_payouts: user.is_admin ? db.listAllPayouts() : [],
+    payout_rules: db.payoutRules(),
     people: db.db.prepare('SELECT * FROM users ORDER BY name').all().map(db.publicUser),
   };
 }
@@ -152,6 +158,56 @@ async function api(req, res, url) {
     return json(res, 200, bootstrap(target));
   }
 
+  /* ---- communities ---- */
+  if (seg[0] === 'communities' && seg.length === 1 && method === 'GET') {
+    return json(res, 200, { communities: db.listCommunities(user.id) });
+  }
+  if (seg[0] === 'communities' && seg[1] && seg.length === 2 && method === 'GET') {
+    const com = db.getCommunity(seg[1], user.id);
+    if (!com) return json(res, 404, { error: 'no_community' });
+    return json(res, 200, { community: com });
+  }
+  /* ---- community codes: the owner adds them, members claim them ---- */
+  const comId = seg[1];
+  const role = seg[0] === 'communities' && comId ? db.communityRole(comId, user.id) : null;
+  const canManageCom = role === 'owner' || role === 'admin' || user.is_admin;
+
+  if (seg[0] === 'communities' && comId && seg[2] === 'codes' && seg.length === 3 && method === 'GET') {
+    if (!role) return json(res, 404, { error: 'no_community' });
+    return json(res, 200, {
+      codes: db.listCodes(canManageCom, comId),
+      rules: db.payoutRules(),
+    });
+  }
+  if (seg[0] === 'communities' && comId && seg[2] === 'codes' && seg.length === 3 && method === 'POST') {
+    if (!canManageCom) return json(res, 403, { error: 'owner_only', message: 'Sirf community owner code add kar sakta hai.' });
+    const body = await readBody(req);
+    const codeText = String(body.code || '').trim();
+    const reward = String(body.reward || '').trim();
+    if (!codeText) return json(res, 400, { error: 'no_code', message: 'Code likho.' });
+    if (!reward) return json(res, 400, { error: 'no_reward', message: 'Reward likho.' });
+    const value = Math.max(0, Math.round(Number(body.value) || 0));
+    if (!value) return json(res, 400, { error: 'no_value', message: 'Is code se kitne rupaye wallet me jayenge, wo daalo.' });
+    const dup = db.db.prepare('SELECT id FROM codes WHERE code = ?')
+      .get(codeText.toUpperCase().replace(/\s+/g, '-'));
+    if (dup) return json(res, 409, { error: 'duplicate', message: 'Ye code pehle se hai.' });
+    const row = db.createCode({ ...body, value, userId: user.id, communityId: comId });
+    broadcast({ type: 'code' });
+    return json(res, 200, { code: db.publicCode(row) });
+  }
+  if (seg[0] === 'communities' && comId && seg[2] === 'codes' && seg[4] === 'active' && method === 'POST') {
+    if (!canManageCom) return json(res, 403, { error: 'owner_only' });
+    const body = await readBody(req);
+    const row = db.setCodeActive(seg[3], !!body.active);
+    broadcast({ type: 'code' });
+    return json(res, 200, { code: row ? db.publicCode(row) : null });
+  }
+  if (seg[0] === 'communities' && comId && seg[2] === 'codes' && seg.length === 4 && method === 'DELETE') {
+    if (!canManageCom) return json(res, 403, { error: 'owner_only' });
+    db.deleteCode(seg[3]);
+    broadcast({ type: 'code' });
+    return json(res, 200, { ok: true });
+  }
   /* ---- chats ---- */
   if (seg[0] === 'chats' && seg.length === 1 && method === 'GET') {
     return json(res, 200, { chats: db.listChats(user.id) });
@@ -175,6 +231,12 @@ async function api(req, res, url) {
       'SELECT 1 AS n FROM chat_members WHERE chat_id = ? AND user_id = ?'
     ).get(chat.id, user.id);
     if (!member) return json(res, 404, { error: 'no_chat' });
+    /* Announcements are admin-only. This is the real gate — the client also hides
+       the composer, but a hidden input is not a permission. */
+    const gate = db.canPost(chat.id, user.id);
+    if (!gate.ok && gate.reason === 'announce_only') {
+      return json(res, 403, { error: 'announce_only', message: 'Sirf admin announce kar sakta hai.' });
+    }
     const msg = db.createMessage({ chatId: chat.id, senderId: user.id, body: text });
     broadcast({ type: 'message', chat_id: chat.id, message_id: msg.id });
     return json(res, 200, { message: msg });
@@ -238,6 +300,20 @@ async function api(req, res, url) {
     return json(res, result.ok ? 200 : 409, result);
   }
 
+  /* ---- wallet / payout requests ---- */
+  if (seg[0] === 'wallet' && seg.length === 1 && method === 'GET') {
+    return json(res, 200, {
+      wallet: db.payoutSummary(user.id),
+      history: db.walletHistory(user.id),
+      payouts: db.listPayouts(user.id),
+    });
+  }
+  if (seg[0] === 'wallet' && seg[1] === 'request' && method === 'POST') {
+    const body = await readBody(req);
+    const result = db.requestPayout({ userId: user.id, amount: body.amount, note: body.note });
+    if (result.ok) broadcast({ type: 'payout' });
+    return json(res, result.ok ? 200 : 409, result);
+  }
   /* ---- profile ---- */
   if (seg[0] === 'me' && method === 'POST') {
     const body = await readBody(req);
@@ -289,6 +365,29 @@ async function api(req, res, url) {
       db.deleteCode(seg[2]);
       broadcast({ type: 'code' });
       return json(res, 200, { ok: true });
+    }
+
+    /* ---- payouts: admin sees every request and delivers the Play code ---- */
+    if (seg[1] === 'payouts' && seg.length === 2 && method === 'GET') {
+      return json(res, 200, { payouts: db.listAllPayouts(), stats: db.payoutStats(), rules: db.payoutRules() });
+    }
+    if (seg[1] === 'payouts' && seg[2] && method === 'POST') {
+      const body = await readBody(req);
+      const result = db.decidePayout({
+        payoutId: seg[2], action: body.action, codeText: body.code_text,
+        adminNote: body.admin_note, adminId: user.id,
+      });
+      if (result.ok) broadcast({ type: 'payout' });
+      return json(res, result.ok ? 200 : 409, result);
+    }
+    /* Payout rules: minimum, denomination step, delivery note. */
+    if (seg[1] === 'payout-rules' && method === 'POST') {
+      const body = await readBody(req);
+      if (body.min_payout !== undefined) db.setSetting('min_payout', Math.max(1, Math.round(Number(body.min_payout) || 300)));
+      if (body.payout_step !== undefined) db.setSetting('payout_step', Math.max(1, Math.round(Number(body.payout_step) || 100)));
+      if (body.payout_note !== undefined) db.setSetting('payout_note', String(body.payout_note).slice(0, 140));
+      broadcast({ type: 'payout' });
+      return json(res, 200, { rules: db.payoutRules() });
     }
   }
 

@@ -40,21 +40,46 @@ The default on a fresh database is `rtzene`. You open the admin panel from the
 - Status updates that disappear after 24 hours
 - Live updates over Server-Sent Events, so two open windows stay in step without refreshing
 
+### Communities
+- Communities hold channels and groups, the way a WhatsApp community does
+- Each community has an **Announcements** channel that only the owner can post in
+- Every other channel is a normal group where all members can talk
+- The inbox lists your communities first, then your one-to-one chats
+- A community hub shows its announcements, groups, and member list
+- Non-owners get a locked composer in Announcements instead of a text box
 ### Redeem codes
 - A **Codes** tab with a box to type a code in
-- Each code has a reward, an optional note, a use limit, and an expiry date
+- Each code carries a rupee **value**, plus an optional note, a use limit, and an expiry date
 - A code can only be taken **once per person** — a second attempt is refused
 - Expired, paused, and used-up codes are refused with a reason written in plain language
+- You only see codes from communities you belong to
 - "Tumne kya liya" — your own redemption history, always visible
 - A code can be sent **into a chat** as a message with a claim button on it
-
+### Wallet and Google Play payouts
+- Claiming a code **credits its rupee value to your wallet**
+- The wallet balance is never a stored number — it is always the sum of every credit minus every debit, so it cannot drift
+- Balance card shows what you have, what is already requested and pending, and what you can still request
+- Once your balance reaches the owner's **minimum**, you can request a **Google Play code**
+- Requests must land on the owner's **denomination steps** (for example multiples of ₹100)
+- A pending request is **debited immediately**, so the same rupees cannot be requested twice while waiting
+- The owner either delivers a real Play code (it appears on your request) or rejects it with a reason and the rupees are **refunded to your wallet**
+- Full wallet history: every credit, debit, and refund with its reason and community name
+### Owner code management
+- Owner adds a code from the community hub, with a rupee value attached
+- Owner can pause, copy, or delete their own codes
+- Members cannot add codes — the server refuses with `owner_only`
 ### Admin panel
 - Stats: live codes, total codes, redemptions, redemptions today, messages, people
-- Create a code with a reward, a note, a use limit, and an expiry in hours
+- Payout stats: pending payouts, rupees paid out, rupees credited to wallets
+- **Payout queue**: every open request with who asked, how much, and their note
+- Deliver a request by pasting the real Google Play code — it is shown to that user only
+- Reject a request with a reason, which automatically refunds the rupees to that wallet
+- Payout rules form: minimum amount, denomination step, and the note shown to requesters
+- Create a code with a rupee value, a note, a use limit, and an expiry in hours
 - Pause and resume a code without deleting it
 - Send a code into any chat as a message
 - Copy a code to the clipboard
-- The full ledger: who took what, when, and where
+- The full ledger: who took what, when, where, and for how much
 - Duplicate codes are refused so nobody reuses a name by accident
 
 ---
@@ -117,13 +142,23 @@ Before this goes on the internet it needs real sign-in — see "Before this goes
 ---
 
 ## Before this goes public
-
 1. Real sign-in (password or magic link) — the `POST /api/session` switcher must go.
 2. Put it behind HTTPS, and set `Secure` on the session cookie.
 3. Serve the app from a real host; keep SQLite, or move to Postgres if more than one
    server process is ever needed.
 4. Rate-limit `/api/redeem`, otherwise a code can be brute-forced by trying everything.
 5. Move the admin passphrase into an environment variable, not the seed default.
+6. **This app now moves real money.** Before anyone outside your test group can request a
+   payout, two things must exist that a database cannot give you:
+   - a person manually buying the Google Play codes and typing them in — the app records
+     a delivered code but it cannot buy one, so the rupee value you put on a code is a
+     promise you are making out of your own pocket
+   - a written rule for disputes: what happens if a user says the code did not work
+7. Cap what one account can earn. Right now a code's value is set only by the owner, and
+   nothing limits how many codes a single user can claim. Set a monthly ceiling before
+   real users arrive, or one leaked code list can drain you.
+8. Keep an off-device copy of the database. `data/rtzene.db` is the only record of every
+   credit and every delivered payout; if the phone dies, the balances are gone.
 
 ---
 
@@ -167,7 +202,28 @@ Last results:
   all-caps label. Kept, with the reason written here instead of silently ignored.
 - **Smoke** — 14/14. This run caught a real hole: the message-write route was checking
   membership on read but not on write, so any signed-in account could post into any chat.
-  Fixed, and retested.
+Fixed, and retested.
+### Wallet and payout checks
+The wallet layer has its own two probe scripts, run against a live server with a fresh seed:
+```bash
+bash /tmp/rtz-test.sh          # member side: claim, balance, request, refusals
+bash /tmp/rtz-admin-test.sh    # admin side: queue, deliver, reject, refund, rules
+```
+Results:
+- Claiming a code credits exactly its rupee value — Jay ₹0, Ava ₹750, Arjun ₹150
+- A user only sees codes from communities they belong to; claiming an outside code
+  returns `not_member`
+- Only the community owner can add a code — a member gets `owner_only`
+- A request below the minimum returns `not_enough`, a request off the denomination step
+  returns `bad_step`, and a request over available balance is refused
+- Pending money is debited at request time, so it cannot be requested twice while waiting
+- Deliver writes the real Play code and marks the request `delivered`; delivering twice
+  returns `done`, delivering with no code returns `no_code`
+- Reject refunds the exact amount back to the wallet (Ravi 200 → 500) and writes a
+  `Payout reject — paise wapas` credit, so the ledger explains itself
+- Rules survive a round trip: min ₹500 / step ₹50 instantly changed the only chip offered
+  to a ₹500 balance
+- Stats react to all of it: pending, delivered, and ₹ paid out all move with the queue
 
 ### What these checks do **not** cover
 

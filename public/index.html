@@ -14,6 +14,12 @@
 <body>
 
 <svg class="sprite" aria-hidden="true" focusable="false">
+  <symbol id="i-wallet" viewBox="0 0 24 24"><rect x="3.5" y="6.5" width="17" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M3.5 10.5h13a2 2 0 010 4h-13" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="17.5" cy="12.5" r="1" fill="currentColor"/></symbol>
+  <symbol id="i-rupee" viewBox="0 0 24 24"><path d="M7 5h10M7 9h10M15.5 5c0 4-2.5 4-8.5 4l7 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 7.5V12l3.5 2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-community" viewBox="0 0 24 24"><path d="M4 8.5h16v9H10l-4 3v-3H4z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="9" cy="13" r="1.5" fill="currentColor"/><circle cx="15" cy="13" r="1.5" fill="currentColor"/><path d="M8 5.5h8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-megaphone" viewBox="0 0 24 24"><path d="M4 10v4h3l7 4V6l-7 4z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M17 9.5a3.5 3.5 0 010 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 10V7.5a4 4 0 018 0V10" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
   <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M15 15l5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
   <symbol id="i-more" viewBox="0 0 24 24"><circle cx="12" cy="5.5" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="18.5" r="1.4" fill="currentColor"/></symbol>
@@ -49,16 +55,53 @@
 
   <main class="stage" id="stage" tabindex="-1">
 
-    <section class="view" id="v-chats" aria-label="Chats">
+    <section class="view" id="v-inbox" aria-label="Communities">
       <div class="finder">
         <svg class="ic ic--mute"><use href="#i-search"></use></svg>
-        <input id="q" type="search" placeholder="Naam ya number dhoondo" autocomplete="off" spellcheck="false" aria-label="Search chats">
+        <input id="q" type="search" placeholder="Community dhoondo" autocomplete="off" spellcheck="false" aria-label="Search communities">
       </div>
+      <h1 class="cap">Communities</h1>
+      <ul class="rows rows--com" id="community-rows"></ul>
+      <p class="blank" id="com-blank" hidden>Abhi koi community nahi. Jab admin tumhe add karega, yahin dikhegi.</p>
+
+      <h2 class="cap">Direct messages</h2>
       <ul class="rows" id="chat-rows"></ul>
-      <p class="blank" id="chats-blank" hidden>Is naam ka koi chat nahi mila. Spelling badal ke dekho, ya neeche “Naya chat” dabao.</p>
+      <p class="blank" id="chats-blank" hidden>Is naam ka koi chat nahi mila.</p>
+
       <button class="fab" id="fab-new" type="button" aria-label="Naya chat ya group">
         <svg class="ic"><use href="#i-plus"></use></svg>
       </button>
+    </section>
+
+    <section class="view" id="v-community" aria-label="Community" hidden>
+      <div class="com-head" id="com-head"></div>
+
+      <h2 class="cap">Announcements</h2>
+      <ul class="rows" id="com-ann"></ul>
+
+      <h2 class="cap">Groups</h2>
+      <ul class="rows" id="com-groups"></ul>
+      <h2 class="cap">Redeem codes</h2>
+      <div class="card" id="com-code-form-wrap" hidden>
+        <span class="field__label">Naya code (owner)</span>
+        <form id="com-code-form">
+          <input name="code" placeholder="RTZENE-0000-0000" required class="mono" autocapitalize="characters">
+          <span class="field__label">Kya milega</span>
+          <input name="reward" placeholder="1000 UC / Diamond 310" required>
+          <span class="field__label">Wallet me kitne ₹ (Google Play value)</span>
+          <input name="value" type="number" min="1" step="1" inputmode="numeric" placeholder="500" required>
+          <div class="pair">
+            <label><span class="field__label">Kitne log</span><input name="maxUses" type="number" min="1" value="1"></label>
+            <label><span class="field__label">Kitne ghante</span><input name="hours" type="number" min="1" value="72"></label>
+          </div>
+          <button class="btn btn--go" type="submit">Code daalo</button>
+          <p class="hint" id="com-code-msg" role="status" hidden></p>
+        </form>
+      </div>
+      <ul class="ledger" id="com-codes"></ul>
+      <p class="blank" id="com-codes-blank" hidden>Is community me abhi koi code nahi.</p>
+      <h2 class="cap">Members</h2>
+      <ul class="people" id="com-members"></ul>
     </section>
 
     <section class="view" id="v-thread" aria-label="Conversation" hidden>
@@ -86,23 +129,43 @@
       </form>
     </section>
 
-    <section class="view" id="v-codes" aria-label="Codes" hidden>
+    <section class="view" id="v-codes" aria-label="Wallet aur codes" hidden>
+      <div class="wallet" id="wallet-card"></div>
+
       <form class="redeem" id="redeem-form">
         <label class="field">
           <span class="field__label">Redeem code</span>
           <input name="code" placeholder="RTZENE-XXXX-XXXX" autocapitalize="characters" spellcheck="false" required class="mono">
         </label>
-        <button class="btn btn--go" type="submit">Redeem</button>
+        <button class="btn btn--go" type="submit">Claim karo</button>
         <p class="hint" id="redeem-msg" role="status" hidden></p>
       </form>
 
       <h2 class="cap">Live codes</h2>
       <ul class="ledger" id="code-list"></ul>
-      <p class="blank" id="codes-blank" hidden>Abhi koi code live nahi hai. Naya code aane par yahin dikhega — page refresh karne ki zarurat nahi.</p>
+      <p class="blank" id="codes-blank" hidden>Abhi koi code live nahi hai. Community owner naya code daalega to page refresh ke bina yahin dikhega.</p>
 
-      <h2 class="cap">Tumne kya liya</h2>
-      <ul class="ledger ledger--taken" id="my-redeems"></ul>
-      <p class="blank" id="mine-blank" hidden>Tumne abhi tak koi code nahi liya. Upar wale box me code daalo.</p>
+      <h2 class="cap">Google Play code maango</h2>
+      <form class="card" id="payout-form">
+        <p class="hint" id="payout-rule"></p>
+        <div class="chips" id="amount-chips"></div>
+        <label><span class="field__label">Ya apna amount</span>
+          <input name="amount" type="number" min="1" step="1" inputmode="numeric" placeholder="Amount ₹">
+        </label>
+        <label><span class="field__label">Note (optional)</span>
+          <input name="note" maxlength="140" placeholder="Kis number/ID pe chahiye">
+        </label>
+        <button class="btn btn--go" type="submit" id="payout-go">Request bhejo</button>
+        <p class="hint" id="payout-msg" role="status" hidden></p>
+      </form>
+
+      <h2 class="cap">Mere requests</h2>
+      <ul class="ledger" id="my-payouts"></ul>
+      <p class="blank" id="payouts-blank" hidden>Abhi koi request nahi. Balance jama hone par upar se maango.</p>
+
+      <h2 class="cap">Wallet ka hisaab</h2>
+      <ul class="ledger ledger--taken" id="wallet-history"></ul>
+      <p class="blank" id="wallet-blank" hidden>Wallet khaali hai. Redeem code claim karo, rupaye yahin jama honge.</p>
     </section>
 
     <section class="view" id="v-you" aria-label="You" hidden>
@@ -135,6 +198,8 @@
         <input name="code" placeholder="RTZENE-0000-0000" required class="mono" autocapitalize="characters">
         <span class="field__label">Kya milega</span>
         <input name="reward" placeholder="1000 UC" required>
+        <span class="field__label">Wallet me kitne ₹</span>
+        <input name="value" type="number" min="1" step="1" inputmode="numeric" placeholder="500" required>
         <span class="field__label">Kiske liye (optional)</span>
         <input name="note" placeholder="Scrim winners ko">
         <div class="pair">
@@ -147,7 +212,21 @@
 
       <h2 class="cap">Saare codes</h2>
       <ul class="admin-list" id="admin-codes"></ul>
-
+      <h2 class="cap">Payout requests</h2>
+      <div class="card">
+        <span class="field__label">Minimum ₹ jitne jama hone par request allowed</span>
+        <form id="rules-form">
+          <div class="pair">
+            <label><span class="field__label">Minimum ₹</span><input name="min_payout" type="number" min="1" placeholder="300"></label>
+            <label><span class="field__label">Play code step ₹</span><input name="payout_step" type="number" min="1" placeholder="100"></label>
+          </div>
+          <span class="field__label">Delivery note</span>
+          <input name="payout_note" maxlength="140" placeholder="Google Play code 24 ghante me milega.">
+          <button class="btn" type="submit">Rules save karo</button>
+          <p class="hint hint--good" id="rules-msg" role="status" hidden></p>
+        </form>
+      </div>
+      <ul class="admin-list" id="admin-payouts"></ul>
       <h2 class="cap">Kaun kya le gaya</h2>
       <ul class="ledger" id="admin-ledger"></ul>
     </section>
@@ -159,9 +238,9 @@
   </div>
 
   <nav class="tabs" id="tabs" aria-label="Sections">
-    <button type="button" data-go="chats"  aria-current="page"><svg class="ic"><use href="#i-chat"></use></svg><span>Chats</span></button>
+    <button type="button" data-go="inbox"  aria-current="page"><svg class="ic"><use href="#i-community"></use></svg><span>Communities</span></button>
     <button type="button" data-go="status"><svg class="ic"><use href="#i-ring"></use></svg><span>Status</span></button>
-    <button type="button" data-go="codes"><svg class="ic"><use href="#i-ticket"></use></svg><span>Codes</span></button>
+    <button type="button" data-go="codes"><svg class="ic"><use href="#i-wallet"></use></svg><span>Wallet</span></button>
     <button type="button" data-go="you"><svg class="ic"><use href="#i-user"></use></svg><span>You</span></button>
   </nav>
 

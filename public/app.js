@@ -2,9 +2,10 @@
 /* RT ZENE — client. No framework, no build step. */
 
 const S = {
-  me: null, chats: [], statuses: [], codes: [], mine: [],
-  stats: {}, ledger: [], people: [], adminCodes: [],
-  chatId: null, messages: [], view: 'chats', q: '', reduceMotion: false,
+  me: null, communities: [], chats: [], statuses: [], codes: [], mine: [],
+  stats: {}, ledger: [], people: [], adminCodes: [], community: null, communityId: null,
+  wallet: null, walletHistory: [], myPayouts: [], allPayouts: [], payoutRules: null,
+  communityCodes: [], chatId: null, messages: [], view: 'inbox', q: '', reduceMotion: false,
 };
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -35,7 +36,9 @@ function until(ms) {
   const left = ms - Date.now();
   if (left <= 0) return 'expired';
   const h = Math.floor(left / 3600000);
-  if (h >= 24) return Math.floor(h / 24) + 'd left';
+  /* Round to the nearest day/hour instead of flooring, so "48h" doesn't read as
+     "1d left" the moment a minute has passed. */
+  if (h >= 24) return Math.round(h / 24) + 'd left';
   if (h >= 1) return h + 'h left';
   return Math.max(1, Math.floor(left / 60000)) + 'm left';
 }
@@ -100,24 +103,76 @@ function sheet(title, items) {
     }, { once: true });
   });
 }
-/* ------------------------------------------------------------------ render */
-
-function renderChats() {
-  const q = S.q.trim().toLowerCase();
-  const shown = S.chats.filter((c) => {
-    if (!q) return true;
-    if (c.title.toLowerCase().includes(q)) return true;
-    return c.members.some((m) => m.name.toLowerCase().includes(q) || m.handle.includes(q));
+/* Sheet with a text field — for things like pasting a Google Play code. */
+function askText(title, { label = '', placeholder = '', multiline = false, confirm = 'Save' } = {}) {
+  const root = $('#sheet-root');
+  root.innerHTML = `
+    <div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+      <div class="sheet__grab" aria-hidden="true"></div>
+      <h2 class="sheet__title">${esc(title)}</h2>
+      <form class="sheet__form" id="ask-form">
+        ${label ? `<span class="field__label">${esc(label)}</span>` : ''}
+        ${multiline
+          ? `<textarea name="value" rows="3" placeholder="${esc(placeholder)}"></textarea>`
+          : `<input name="value" placeholder="${esc(placeholder)}" class="mono" autocomplete="off" spellcheck="false">`}
+        <div class="sheet__acts">
+          <button class="btn" type="button" data-cancel>Band karo</button>
+          <button class="btn btn--go" type="submit">${esc(confirm)}</button>
+        </div>
+      </form>
+    </div>`;
+  root.hidden = false;
+  const input = $('#ask-form [name=value]');
+  setTimeout(() => input.focus(), 40);
+  return new Promise((resolve) => {
+    const done = (v) => { root.hidden = true; root.innerHTML = ''; resolve(v); };
+    root.addEventListener('click', (e) => {
+      if (e.target.closest('[data-cancel]') || e.target === root) done(null);
+    });
+    root.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const v = input.value.trim();
+      done(v || null);
+    });
   });
+}
+/* ------------------------------------------------------------------ render */
+function renderInbox() {
+  const q = S.q.trim().toLowerCase();
 
-  $('#chats-blank').hidden = shown.length > 0;
+  const coms = S.communities.filter((c) => !q || c.name.toLowerCase().includes(q));
+  const dmOnly = S.chats.filter((c) => !c.community_id);
+  const dms = dmOnly.filter((c) => !q || c.title.toLowerCase().includes(q));
 
-  $('#chat-rows').innerHTML = shown.map((c) => `
+  $('#com-blank').hidden = coms.length > 0;
+  $('#chats-blank').hidden = dms.length > 0;
+
+  $('#community-rows').innerHTML = coms.map((c) => {
+    const ann = c.last_announcement;
+    return `
+    <li>
+      <button class="row row--com" type="button" data-community="${c.id}">
+        <span class="com-tile" style="--h:${c.hue}">${av(c.name, c.hue)}</span>
+        <span class="row__mid">
+          <span class="row__title">${esc(c.name)}</span>
+          <span class="row__line">
+            <span class="row__snip">${ann ? `${esc(ann.from)}: ${esc(ann.body)}` : esc(c.tagline || 'Abhi koi announcement nahi')}</span>
+          </span>
+        </span>
+        <span class="row__end">
+          <span class="row__at">${ann ? esc(clock(ann.at)) : ''}</span>
+          <span class="row__at">${c.group_count} groups</span>
+        </span>
+      </button>
+    </li>`;
+  }).join('');
+
+  $('#chat-rows').innerHTML = dms.map((c) => `
     <li>
       <button class="row" type="button" data-chat="${c.id}">
         ${av(c.title, c.hue)}
         <span class="row__mid">
-          <span class="row__title">${esc(c.title)}${c.kind === 'group' ? ` <span class="pill pill--ghost">${c.member_count}</span>` : ''}</span>
+          <span class="row__title">${esc(c.title)}</span>
           <span class="row__line">
             ${c.preview_kind === 'code' ? icon('ticket') : ''}
             ${c.preview_from ? `<b>${esc(c.preview_from)}:</b>` : ''}
@@ -127,17 +182,126 @@ function renderChats() {
         <span class="row__end">
           <span class="row__at">${esc(clock(c.last_at))}</span>
           ${c.unread ? `<span class="pill">${c.unread}</span>` : ''}
-          ${c.pinned ? `<span class="row__at">pinned</span>` : ''}
         </span>
       </button>
     </li>`).join('');
 }
 
+function renderCommunity() {
+  const c = S.community;
+  if (!c) return;
+
+  $('#com-head').innerHTML = `
+    <div class="com-banner" style="--h:${c.hue}">
+      ${av(c.name, c.hue, 'av--lg')}
+      <div>
+        <h1 class="com-name">${esc(c.name)}</h1>
+        <p class="com-tag">${esc(c.tagline || '')}</p>
+        <p class="com-meta">${c.member_count} members · ${c.groups.length} groups · ${esc(c.role)}</p>
+      </div>
+    </div>`;
+
+  const annRow = (g) => `
+    <li>
+      <button class="row row--ann" type="button" data-chat="${g.id}">
+        <span class="ann-ic">${icon('megaphone')}</span>
+        <span class="row__mid">
+          <span class="row__title">${esc(g.name)} <span class="pill pill--lock">${icon('lock')} admin only</span></span>
+          <span class="row__line"><span class="row__snip">Sab members ko dikhta hai. Sirf admin likh sakta hai.</span></span>
+        </span>
+        <span class="row__end">
+          <span class="row__at">${esc(clock(g.last_at))}</span>
+          ${g.unread ? `<span class="pill">${g.unread}</span>` : ''}
+        </span>
+      </button>
+    </li>`;
+
+  $('#com-ann').innerHTML = c.announcements.map(annRow).join('')
+    || '<li><p class="blank">Koi announcement group nahi.</p></li>';
+
+  $('#com-groups').innerHTML = c.groups.map((g) => `
+    <li>
+      <button class="row" type="button" data-chat="${g.id}">
+        ${av(g.name, g.hue)}
+        <span class="row__mid">
+          <span class="row__title">${esc(g.name)} <span class="pill pill--ghost">${g.member_count}</span></span>
+          <span class="row__line">
+            ${g.preview_from ? `<b>${esc(g.preview_from)}:</b>` : ''}
+            <span class="row__snip">${esc(g.preview)}</span>
+          </span>
+        </span>
+        <span class="row__end">
+          <span class="row__at">${esc(clock(g.last_at))}</span>
+          ${g.unread ? `<span class="pill">${g.unread}</span>` : ''}
+        </span>
+      </button>
+    </li>`).join('') || '<li><p class="blank">Is community me abhi koi group nahi.</p></li>';
+
+  $('#com-members').innerHTML = c.members.map((m) => `
+    <li class="person">
+      ${av(m.name, m.hue, 'av--sm')}
+      <span class="person__mid">
+        <span class="person__name">${esc(m.name)}</span>
+        <span class="person__sub">@${esc(m.handle)}</span>
+      </span>
+      <span class="pill pill--ghost">${esc(m.role)}</span>
+    </li>`).join('');
+
+  /* Codes for this community. Owners can add; everyone can claim from Wallet. */
+  const mineSet = new Set(S.mine.map((m) => m.code));
+  const canManage = c.role === 'owner' || c.role === 'admin';
+  $('#com-code-form-wrap').hidden = !canManage;
+  $('#com-codes').innerHTML = (S.communityCodes || []).map((k) => `
+    <li class="entry">
+      <span class="entry__code">${esc(k.code)}</span>
+      <span class="entry__reward">${esc(k.reward)}${k.value ? ` · ₹${k.value}` : ''}</span>
+      ${k.note ? `<span class="entry__note">${esc(k.note)}</span>` : ''}
+      ${canManage ? `<span class="entry__acts">
+        <button class="icon-btn" type="button" data-com-code="toggle" data-id="${k.id}" data-on="${k.active ? 1 : 0}" title="${k.active ? 'Pause' : 'Resume'}">${icon(k.active ? 'pause' : 'play')}</button>
+        <button class="icon-btn" type="button" data-com-code="copy" data-code="${esc(k.code)}" title="Copy">${icon('copy')}</button>
+        <button class="icon-btn icon-btn--danger" type="button" data-com-code="del" data-id="${k.id}" title="Delete">${icon('trash')}</button>
+      </span>` : ''}
+      <span class="entry__end">
+        <span class="state ${k.state === 'live' ? 'state--live' : 'state--usedup'}">${esc(k.state)}</span>
+        <span class="meter">${k.redeemed} of ${k.max_uses} liye</span>
+        <span class="meter">${mineSet.has(k.code) ? 'tumne liya' : esc(until(k.expires_at))}</span>
+      </span>
+    </li>`).join('') || '';
+  $('#com-codes-blank').hidden = (S.communityCodes || []).length > 0;
+}
+
+async function openCommunity(id) {
+  S.communityId = id;
+  const { ok, data } = await api(`communities/${id}`);
+  if (!ok) { toast('Community khuli nahi', true); return; }
+  S.community = data.community;
+  const { data: k } = await api(`communities/${id}/codes`);
+  S.communityCodes = k.codes || [];
+  go('community');
+}
+function openAnnounce() {
+  const c = S.community;
+  if (!c) return;
+  const ann = c.announcements[0];
+  if (!ann) { toast('Pehle koi announcement group banao', true); return; }
+  openChat(ann.id);
+}
+
 function renderThread() {
   const el = $('#thread');
   const chat = S.chats.find((c) => c.id === S.chatId);
+  const isAnn = chat?.post_policy === 'admin';
+  const canPost = !isAnn || isAnnAdmin(chat);
+
   let lastDay = '';
   const out = [];
+
+  if (isAnn) {
+    out.push(`<div class="ann-note">
+      ${icon('megaphone')}
+      <span><b>Announcement channel.</b> Sirf admin likh sakta hai. Baaki sab padh sakte hain — reply nahi.</span>
+    </div>`);
+  }
 
   for (const m of S.messages) {
     const day = dayLabel(m.created_at);
@@ -176,6 +340,33 @@ function renderThread() {
 
   el.innerHTML = out.join('') || '<p class="blank">Abhi koi message nahi. Neeche likh ke shuru karo.</p>';
   el.scrollTop = el.scrollHeight;
+
+  /* Announcements: members get no composer at all — just a locked line. The
+     server refuses anyway; this is so nobody types a message into a dead box. */
+  const tray = $('#tray');
+  const locked = isAnn && !canPost;
+  tray.hidden = locked;
+  if (locked) {
+    let note = $('#ann-locked');
+    if (!note) {
+      note = document.createElement('p');
+      note.id = 'ann-locked';
+      note.className = 'tray--locked';
+      tray.parentElement.appendChild(note);
+    }
+    note.innerHTML = `${icon('lock')} Sirf admin announce kar sakta hai.`;
+    note.hidden = false;
+  } else {
+    const note = $('#ann-locked');
+    if (note) note.hidden = true;
+  }
+}
+/* Announcements are writable by the community owner/admin. S.me.is_admin is the
+   code-panel flag and is not enough on its own. */
+function isAnnAdmin(chat) {
+  const com = S.community;
+  if (com && chat?.community_id === com.id) return com.role === 'owner' || com.role === 'admin';
+  return !!S.me?.is_admin;
 }
 
 function renderStatus() {
@@ -197,12 +388,37 @@ function renderStatus() {
 
 function renderCodes() {
   const taken = new Set(S.mine.map((m) => m.code));
-  const live = S.codes.filter((c) => c.state === 'live');
+  const w = S.wallet || { balance: 0, pending: 0, available: 0, can_request: false, options: [], rules: { min: 300, step: 100, note: '' }, shortfall: 0 };
 
+  $('#wallet-card').innerHTML = `
+    <div class="wallet__main">
+      <span class="wallet__label">Wallet</span>
+      <span class="wallet__amt">₹${w.balance}</span>
+      <span class="wallet__sub">${w.pending > 0 ? `₹${w.pending} ka request pending` : 'Koi request pending nahi'}</span>
+    </div>
+    <div class="wallet__side">
+      <span class="wallet__mini"><b>₹${w.available}</b><span>Use kar sakte ho</span></span>
+      <span class="wallet__mini"><b>${w.can_request ? 'Ready' : '₹' + w.shortfall}</b><span>${w.can_request ? 'Payout maang sakte ho' : 'Aur chahiye'}</span></span>
+    </div>`;
+
+  const rule = w.rules || {};
+  $('#payout-rule').innerHTML = w.can_request
+    ? `Minimum ₹${rule.min} · Google Play code ₹${rule.step} ke multiple me. ${esc(rule.note || '')}`
+    : `Payout ke liye kam se kam ₹${rule.min} chahiye. Abhi ₹${w.available} available — ₹${w.shortfall} aur chahiye.`;
+
+  const opts = w.options || [];
+  $('#amount-chips').innerHTML = opts.length
+    ? opts.map((a) => `<button class="chip" type="button" data-amount="${a}">₹${a}</button>`).join('')
+    : '';
+  $('#amount-chips').hidden = !opts.length;
+  $('#payout-go').disabled = !w.can_request;
+  $('#payout-go').textContent = w.can_request ? 'Request bhejo' : `₹${w.shortfall} aur chahiye`;
+
+  const live = S.codes.filter((c) => c.state === 'live');
   $('#code-list').innerHTML = live.map((c) => `
     <li class="entry"${taken.has(c.code) ? ' style="opacity:.55"' : ''}>
       <span class="entry__code">${esc(c.code)}</span>
-      <span class="entry__reward">${esc(c.reward)}</span>
+      <span class="entry__reward">${esc(c.reward)}${c.value ? ` · ₹${c.value}` : ''}</span>
       ${c.note ? `<span class="entry__note">${esc(c.note)}</span>` : ''}
       <span class="entry__end">
         <span class="state state--live">live</span>
@@ -210,17 +426,38 @@ function renderCodes() {
         <span class="meter">${esc(until(c.expires_at))}</span>
       </span>
     </li>`).join('');
-
   $('#codes-blank').hidden = live.length > 0;
 
-  $('#my-redeems').innerHTML = S.mine.map((m) => `
+  $('#my-payouts').innerHTML = (S.myPayouts || []).map((p) => `
     <li class="entry">
-      <span class="entry__code">${esc(m.code)}</span>
-      <span class="entry__reward">${esc(m.reward)}</span>
-      <span class="entry__end"><span class="meter">${esc(clock(m.at))}</span></span>
+      <span class="entry__code">₹${p.amount}</span>
+      <span class="entry__reward">${esc(payoutLabel(p.status))}</span>
+      ${p.code_text ? `<span class="entry__note mono">${esc(p.code_text)}</span>` : ''}
+      ${p.admin_note ? `<span class="entry__note">${esc(p.admin_note)}</span>` : ''}
+      <span class="entry__end"><span class="meter">${esc(clock(p.requested_at))}</span></span>
     </li>`).join('');
+  $('#payouts-blank').hidden = (S.myPayouts || []).length > 0;
 
-  $('#mine-blank').hidden = S.mine.length > 0;
+  $('#wallet-history').innerHTML = (S.walletHistory || []).map((h) => `
+    <li class="entry">
+      <span class="entry__code">${h.kind === 'credit' ? '+' : '−'}₹${h.amount}</span>
+      <span class="entry__reward">${esc(h.label)}</span>
+      <span class="entry__end"><span class="meter">${esc(clock(h.at))}</span></span>
+    </li>`).join('');
+  $('#wallet-blank').hidden = (S.walletHistory || []).length > 0;
+}
+function payoutLabel(status) {
+  return ({
+    pending: 'Admin ke paas — wait karo',
+    approved: 'Approve ho gaya',
+    delivered: 'Code mil gaya',
+    rejected: 'Reject ho gaya',
+  })[status] || status;
+}
+/* A pending payout must read as "needs action", not as an inactive grey chip —
+   that was the bug when it borrowed state--paused. */
+function payoutState(status) {
+  return ({ delivered: 'live', pending: 'pending', approved: 'pending', rejected: 'rejected' })[status] || 'paused';
 }
 
 function renderYou() {
@@ -252,7 +489,8 @@ function renderAdmin() {
   const cells = [
     [s.codes_live, 'live codes'], [s.codes_total, 'total codes'],
     [s.redeemed, 'redeemed'], [s.redeemed_today, 'redeemed today'],
-    [s.messages, 'messages'], [s.people, 'log'],
+    [s.pending, 'payouts pending'], [s.paid_out, '₹ paid out'],
+    [s.credited, '₹ credited'], [s.people, 'people'],
   ];
   $('#admin-stats').innerHTML = cells.map(([n, k]) =>
     `<div class="stat"><div class="stat__n">${n ?? 0}</div><div class="stat__k">${esc(k)}</div></div>`).join('');
@@ -261,7 +499,7 @@ function renderAdmin() {
   $('#admin-codes').innerHTML = S.adminCodes.map((c) => `
     <li class="entry entry--admin">
       <span class="entry__code">${esc(c.code)}</span>
-      <span class="entry__reward">${esc(c.reward)}</span>
+      <span class="entry__reward">${esc(c.reward)}${c.value ? ` · ₹${c.value}` : ''}</span>
       ${c.note ? `<span class="entry__note">${esc(c.note)}</span>` : ''}
       <span class="entry__acts">
         <button class="icon-btn" type="button" data-act="toggle" data-id="${c.id}" data-on="${c.active ? 1 : 0}" title="${c.active ? 'Pause' : 'Resume'}">${icon(c.active ? 'pause' : 'play')}</button>
@@ -283,13 +521,36 @@ function renderAdmin() {
       <span class="entry__note">${esc(l.where)}</span>
       <span class="entry__end"><span class="meter">${esc(clock(l.at))}</span></span>
     </li>`).join('') || '<li><p class="blank">Koi redeem hua nahi abhi.</p></li>';
+
+  /* Payout queue: admin delivers the real Google Play code, or rejects (refunds). */
+  const rules = S.payoutRules || {};
+  const rf = $('#rules-form');
+  rf.min_payout.value = rules.min ?? '';
+  rf.payout_step.value = rules.step ?? '';
+  rf.payout_note.value = rules.note ?? '';
+  $('#admin-payouts').innerHTML = (S.allPayouts || []).map((p) => `
+    <li class="entry entry--admin entry--${esc(p.status)}">
+      ${av(p.user, p.hue, 'av--sm')}
+      <span class="entry__reward"><b>${esc(p.user)}</b> — ₹${p.amount}</span>
+      ${p.note ? `<span class="entry__note">"${esc(p.note)}"</span>` : ''}
+      ${p.code_text ? `<span class="entry__note mono">code: ${esc(p.code_text)}</span>` : ''}
+      ${p.admin_note ? `<span class="entry__note">${esc(p.admin_note)}</span>` : ''}
+      <span class="entry__end">
+        <span class="state state--${payoutState(p.status)}">${esc(p.status)}</span>
+        <span class="meter">${esc(clock(p.requested_at))}</span>
+        ${p.status === 'pending' || p.status === 'approved' ? `
+          <span class="entry__acts">
+            <button class="icon-btn" type="button" data-payout="deliver" data-id="${p.id}" title="Code deliver karo">${icon('check')}</button>
+            <button class="icon-btn icon-btn--danger" type="button" data-payout="reject" data-id="${p.id}" title="Reject (paise wapas)">${icon('x')}</button>
+          </span>` : ''}
+      </span>
+    </li>`).join('') || '<li><p class="blank">Abhi koi request nahi.</p></li>';
 }
 /* -------------------------------------------------------------- navigation */
 
-const VIEWS = { chats: 'v-chats', thread: 'v-thread', status: 'v-status', codes: 'v-codes', you: 'v-you', admin: 'v-admin' };
-const TITLES = { status: 'Status', codes: 'Codes', you: 'You', admin: 'Admin panel' };
+const VIEWS = { inbox: 'v-inbox', community: 'v-community', thread: 'v-thread', status: 'v-status', codes: 'v-codes', you: 'v-you', admin: 'v-admin' };
+const TITLES = { status: 'Status', codes: 'Wallet', you: 'You', admin: 'Admin panel' };
 const MARK = '<span class="mark" aria-hidden="true"><svg viewBox="0 0 32 32"><g fill="none" stroke="currentColor" stroke-width="1.6"><rect x="7" y="7" width="18" height="18"/><rect x="7" y="7" width="18" height="18" transform="rotate(45 16 16)"/><circle cx="16" cy="16" r="4.2" stroke-width="2"/></g></svg></span>';
-
 const isDesktop = () => window.matchMedia('(min-width: 900px)').matches;
 
 function updateStage(view) {
@@ -297,22 +558,19 @@ function updateStage(view) {
   for (const [k, id] of Object.entries(VIEWS)) {
     const el = document.getElementById(id);
     if (!el) continue;
-    const show = k === view || (desktop && k === 'chats');
+    const show = k === view || (desktop && k === 'inbox');
     el.hidden = !show;
     el.style.display = show ? '' : 'none';
   }
   const hint = $('#pane-hint');
-  if (hint) hint.hidden = !(desktop && view === 'chats');
+  if (hint) hint.hidden = !(desktop && view === 'inbox');
 }
-
 function go(view) {
   S.view = view;
   updateStage(view);
-
   const bar = $('#bar-id'), acts = $('#bar-act');
   bar.innerHTML = ''; acts.innerHTML = '';
-  $('#btn-back').hidden = view !== 'thread';
-
+  $('#btn-back').hidden = !(view === 'thread' || view === 'community');
   if (view === 'thread') {
     const c = S.chats.find((x) => x.id === S.chatId);
     const sub = c?.kind === 'group'
@@ -326,9 +584,19 @@ function go(view) {
     $('#act-pin').onclick = async () => {
       await api(`chats/${c.id}/pin`, { method: 'POST', body: { pinned: !c.pinned } });
       toast(c.pinned ? 'Unpin ho gaya' : 'Pin ho gaya');
-      await refresh(); go('chats');
+      await refresh(); go('inbox');
     };
     $('#act-menu').onclick = () => chatMenu(c);
+  } else if (view === 'community') {
+    const com = S.community;
+    bar.innerHTML = com
+      ? `${av(com.name, com.hue, 'av--sm')}
+         <span><span class="bar__name">${esc(com.name)}</span><span class="bar__sub">${com.member_count} members · ${com.groups.length} groups</span></span>`
+      : `${MARK}<span class="wordmark">Community</span>`;
+    if (com && (com.role === 'owner' || com.role === 'admin')) {
+      acts.innerHTML = `<button type="button" id="act-ann" aria-label="Announce karo">${icon('megaphone')}</button>`;
+      $('#act-ann').onclick = () => openAnnounce();
+    }
   } else {
     bar.innerHTML = `${MARK}<span class="wordmark">${esc(TITLES[view] || 'RT ZENE')}</span>`;
     if (view === 'you' && S.me?.is_admin) {
@@ -347,7 +615,8 @@ function go(view) {
     else b.removeAttribute('aria-current');
   }
 
-  if (view === 'chats') renderChats();
+  if (view === 'inbox') renderInbox();
+  if (view === 'community') renderCommunity();
   if (view === 'thread') renderThread();
   if (view === 'status') renderStatus();
   if (view === 'codes') renderCodes();
@@ -382,18 +651,29 @@ async function refresh() {
   const { ok, data } = await api('bootstrap');
   if (!ok) return;
   Object.assign(S, {
-    me: data.me, chats: data.chats, statuses: data.statuses, codes: data.codes,
+    me: data.me, communities: data.communities || [], chats: data.chats, statuses: data.statuses, codes: data.codes,
     mine: data.my_redemptions, stats: data.stats, ledger: data.ledger, people: data.people,
+    wallet: data.wallet || null, walletHistory: data.wallet_history || [],
+    myPayouts: data.my_payouts || [], allPayouts: data.all_payouts || [],
+    payoutRules: data.payout_rules || null,
   });
-
   if (S.me.is_admin) {
     const { data: a } = await api('admin/codes');
     S.adminCodes = a.codes || [];
     S.ledger = a.ledger || [];
     S.stats = a.stats || S.stats;
+    const { data: p } = await api('admin/payouts');
+    S.allPayouts = p.payouts || [];
+    S.stats = p.stats ? { ...S.stats, ...p.stats } : S.stats;
   }
-
-  if (S.view === 'chats') renderChats();
+  if (S.view === 'inbox') renderInbox();
+  if (S.view === 'community') {
+    const { data: c } = await api(`communities/${S.communityId}`);
+    if (c.community) { S.community = c.community; }
+    const { data: k } = await api(`communities/${S.communityId}/codes`);
+    S.communityCodes = k.codes || [];
+    renderCommunity();
+  }
   if (S.view === 'codes') renderCodes();
   if (S.view === 'status') renderStatus();
   if (S.view === 'admin') renderAdmin();
@@ -402,9 +682,11 @@ async function refresh() {
 }
 
 function renderCounts() {
-  const tab = $('#tabs button[data-go="chats"]');
+  const tab = $('#tabs button[data-go="inbox"]');
+  if (!tab) return;
   const old = $('.count', tab);
   if (old) old.remove();
+  /* unread across community groups and DMs both — the inbox tab is the only badge */
   const unread = S.chats.reduce((n, c) => n + c.unread, 0);
   if (unread > 0) {
     const span = document.createElement('span');
@@ -422,7 +704,7 @@ async function chatMenu(c) {
   if (!pick) return;
   if (pick.label.includes('Pin')) {
     await api(`chats/${c.id}/pin`, { method: 'POST', body: { pinned: !c.pinned } });
-    await refresh(); go('chats');
+    await refresh(); go('inbox');
   } else go('codes');
 }
 
@@ -481,18 +763,33 @@ async function adminSendCode(id, codeLabel) {
 /* ------------------------------------------------------------------ wiring */
 
 function wire() {
-  $('#btn-back').onclick = () => { S.chatId = null; go('chats'); refresh(); };
+  $('#btn-back').onclick = () => {
+    if (S.view === 'community') { S.chatId = null; go('inbox'); refresh(); return; }
+    /* going back from a group inside a community returns to that community, not the root */
+    const chat = S.chats.find((c) => c.id === S.chatId);
+    S.chatId = null;
+    if (chat?.community_id) { openCommunity(chat.community_id); return; }
+    go('inbox'); refresh();
+  };
   $('#tabs').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-go]');
     if (b) go(b.dataset.go);
   });
-
-  $('#q').addEventListener('input', (e) => { S.q = e.target.value; renderChats(); });
+  $('#q').addEventListener('input', (e) => { S.q = e.target.value; renderInbox(); });
+  $('#community-rows').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-community]');
+    if (b) openCommunity(b.dataset.community);
+  });
   $('#chat-rows').addEventListener('click', (e) => {
     const b = e.target.closest('[data-chat]');
     if (b) openChat(b.dataset.chat);
   });
-
+  for (const id of ['#com-ann', '#com-groups']) {
+    $(id).addEventListener('click', (e) => {
+      const b = e.target.closest('[data-chat]');
+      if (b) openChat(b.dataset.chat);
+    });
+  }
   $('#btn-send').onclick = send;
   $('#compose').addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
@@ -537,6 +834,106 @@ function wire() {
     const r = await api('me', { method: 'POST', body: { name: fd.get('name'), about: fd.get('about') } });
     if (r.ok) { toast('Save ho gaya'); await refresh(); }
   });
+  /* ---- wallet: request a Google Play payout ---- */
+  $('#amount-chips').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-amount]');
+    if (!b) return;
+    $('#payout-form').amount.value = b.dataset.amount;
+    $$('#amount-chips .chip').forEach((c) => c.classList.toggle('is-on', c === b));
+  });
+  $('#payout-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target), box = $('#payout-msg');
+    const r = await api('wallet/request', {
+      method: 'POST',
+      body: { amount: Number(fd.get('amount')), note: fd.get('note') },
+    });
+    box.hidden = false;
+    box.className = 'hint ' + (r.ok ? 'hint--good' : 'hint--bad');
+    box.textContent = r.data.message || (r.ok ? 'Request chala gaya.' : 'Request nahi gaya.');
+    if (r.ok) { e.target.reset(); $$('#amount-chips .chip').forEach((c) => c.classList.remove('is-on')); await refresh(); }
+  });
+  /* ---- community codes: owner adds, toggles, deletes ---- */
+  $('#com-code-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target), box = $('#com-code-msg');
+    const r = await api(`communities/${S.communityId}/codes`, {
+      method: 'POST',
+      body: {
+        code: fd.get('code'), reward: fd.get('reward'), value: Number(fd.get('value')),
+        maxUses: Number(fd.get('maxUses')), hours: Number(fd.get('hours')),
+      },
+    });
+    box.hidden = false;
+    box.className = 'hint ' + (r.ok ? 'hint--good' : 'hint--bad');
+    box.textContent = r.ok ? 'Code lag gaya. Members Wallet me claim kar sakte hain.' : (r.data.message || 'Code nahi laga');
+    if (r.ok) { e.target.reset(); await openCommunity(S.communityId); await refresh(); }
+  });
+  $('#com-codes').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-com-code]');
+    if (!b) return;
+    const { comCode, id, code, on } = b.dataset;
+    if (comCode === 'copy') {
+      try { await navigator.clipboard.writeText(code); toast('Code copy ho gaya'); }
+      catch { toast(code); }
+      return;
+    }
+    if (comCode === 'toggle') {
+      await api(`communities/${S.communityId}/codes/${id}/active`, { method: 'POST', body: { active: on !== '1' } });
+      await openCommunity(S.communityId); await refresh(); return;
+    }
+    if (comCode === 'del') {
+      const yes = await sheet('Code delete karo?', [{ label: code, sub: 'Isse hamesha ke liye hata dega', icon: 'trash' }]);
+      if (!yes) return;
+      await api(`communities/${S.communityId}/codes/${id}`, { method: 'DELETE' });
+      await openCommunity(S.communityId); await refresh();
+    }
+  });
+  /* ---- admin: payout rules + deciding requests ---- */
+  $('#rules-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target), box = $('#rules-msg');
+    const r = await api('admin/payout-rules', {
+      method: 'POST',
+      body: {
+        min_payout: Number(fd.get('min_payout')), payout_step: Number(fd.get('payout_step')),
+        payout_note: fd.get('payout_note'),
+      },
+    });
+    box.hidden = false;
+    box.textContent = r.ok ? 'Rules save ho gaye.' : 'Rules save nahi hue';
+    if (r.ok) { S.payoutRules = r.data.rules; await refresh(); }
+  });
+  $('#admin-payouts').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-payout]');
+    if (!b) return;
+    const { payout, id } = b.dataset;
+    if (payout === 'deliver') {
+      const p = (S.allPayouts || []).find((x) => x.id === id);
+      const code = await askText(`₹${p ? p.amount : ''} ka Google Play code`, {
+        label: `${esc(p ? p.user : '')} ko ye code milega`,
+        placeholder: 'XXXX-XXXX-XXXX-XXXX',
+        confirm: 'Deliver karo',
+      });
+      if (!code) return;
+      const r = await api(`admin/payouts/${id}`, { method: 'POST', body: { action: 'deliver', code_text: code } });
+      toast(r.data.message || (r.ok ? 'Deliver ho gaya' : 'Nahi ho paya'), !r.ok);
+      if (r.ok) await refresh();
+      return;
+    }
+    if (payout === 'reject') {
+      const why = await askText('Request reject karo?', {
+        label: 'Kyun reject kar rahe ho (paise wapas wallet me jayenge)',
+        placeholder: 'Galat amount maanga / duplicate request',
+        multiline: true,
+        confirm: 'Reject karo',
+      });
+      if (!why) return;
+      const r = await api(`admin/payouts/${id}`, { method: 'POST', body: { action: 'reject', admin_note: why } });
+      toast(r.data.message || (r.ok ? 'Reject ho gaya' : 'Nahi ho paya'), !r.ok);
+      if (r.ok) await refresh();
+    }
+  });
 
   $('#tgl-motion').addEventListener('change', (e) => {
     S.reduceMotion = e.target.checked;
@@ -564,7 +961,7 @@ function wire() {
     const r = await api('admin/codes', {
       method: 'POST',
       body: {
-        code: fd.get('code'), reward: fd.get('reward'), note: fd.get('note'),
+        code: fd.get('code'), reward: fd.get('reward'), value: Number(fd.get('value')), note: fd.get('note'),
         maxUses: Number(fd.get('maxUses')), hours: Number(fd.get('hours')),
       },
     });
@@ -629,7 +1026,7 @@ function live() {
   }
   wire();
   await refresh();
-  go('chats');
+  go('inbox');
   window.addEventListener('resize', () => updateStage(S.view));
   live();
   document.body.dataset.ready = '1';
