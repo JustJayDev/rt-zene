@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0E1114">
+<title>RT ZENE — chat aur redeem codes</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="/fonts/onest-var.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/martianmono-var.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+
+<svg class="sprite" aria-hidden="true" focusable="false">
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M15 15l5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="12" cy="5.5" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="18.5" r="1.4" fill="currentColor"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M4 12l15-7-5.5 15-3-6z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+  <symbol id="i-ticket" viewBox="0 0 24 24"><path d="M3 8.5h18v3a2 2 0 000 4v3H3v-3a2 2 0 000-4z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 8.5v11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="2 3"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 6.5h16v10H10l-4.5 3.5v-3.5H4z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+  <symbol id="i-ring" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="4 3"/><circle cx="12" cy="12" r="3" fill="currentColor"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="9" r="3.6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5 20a7 7 0 0114 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M15 9V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7a2 2 0 002 2h3" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2M6.5 7l1 12.5h9L17.5 7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 6v12M15 6v12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 13l4.5 4.5L19 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+</svg>
+
+<div class="shell" id="shell">
+
+  <header class="bar" id="bar">
+    <button class="bar__back" id="btn-back" type="button" hidden aria-label="Back">
+      <svg class="ic"><use href="#i-back"></use></svg>
+    </button>
+    <div class="bar__id" id="bar-id">
+      <span class="mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32"><g fill="none" stroke="currentColor" stroke-width="1.6"><rect x="7" y="7" width="18" height="18"/><rect x="7" y="7" width="18" height="18" transform="rotate(45 16 16)"/><circle cx="16" cy="16" r="4.2" stroke-width="2"/></g></svg>
+      </span>
+      <span class="wordmark">RT ZENE</span>
+    </div>
+    <div class="bar__act" id="bar-act"></div>
+  </header>
+
+  <main class="stage" id="stage" tabindex="-1">
+
+    <section class="view" id="v-chats" aria-label="Chats">
+      <div class="finder">
+        <svg class="ic ic--mute"><use href="#i-search"></use></svg>
+        <input id="q" type="search" placeholder="Naam ya number dhoondo" autocomplete="off" spellcheck="false" aria-label="Search chats">
+      </div>
+      <ul class="rows" id="chat-rows"></ul>
+      <p class="blank" id="chats-blank" hidden>Is naam ka koi chat nahi mila. Spelling badal ke dekho, ya neeche “Naya chat” dabao.</p>
+      <button class="fab" id="fab-new" type="button" aria-label="Naya chat ya group">
+        <svg class="ic"><use href="#i-plus"></use></svg>
+      </button>
+    </section>
+
+    <section class="view" id="v-thread" aria-label="Conversation" hidden>
+      <div class="thread" id="thread"></div>
+      <div class="tray" id="tray">
+        <button class="tray__key" id="btn-attach" type="button" aria-label="Code bhejo">
+          <svg class="ic"><use href="#i-ticket"></use></svg>
+        </button>
+        <textarea id="compose" rows="1" placeholder="Message likho" aria-label="Message" maxlength="2000"></textarea>
+        <button class="tray__send" id="btn-send" type="button" aria-label="Send">
+          <svg class="ic"><use href="#i-send"></use></svg>
+        </button>
+      </div>
+    </section>
+
+    <section class="view" id="v-status" aria-label="Status" hidden>
+      <h1 class="cap">Status — 24 ghante baad gayab</h1>
+      <ul class="rows rows--status" id="status-rows"></ul>
+      <form class="composer" id="status-form">
+        <label class="field">
+          <span class="field__label">Apna status likho</span>
+          <textarea name="body" rows="3" maxlength="700" placeholder="Aaj ka match, aaj ka mood" required></textarea>
+        </label>
+        <button class="btn btn--go" type="submit">Status lagao</button>
+      </form>
+    </section>
+
+    <section class="view" id="v-codes" aria-label="Codes" hidden>
+      <form class="redeem" id="redeem-form">
+        <label class="field">
+          <span class="field__label">Redeem code</span>
+          <input name="code" placeholder="RTZENE-XXXX-XXXX" autocapitalize="characters" spellcheck="false" required class="mono">
+        </label>
+        <button class="btn btn--go" type="submit">Redeem</button>
+        <p class="hint" id="redeem-msg" role="status" hidden></p>
+      </form>
+
+      <h2 class="cap">Live codes</h2>
+      <ul class="ledger" id="code-list"></ul>
+      <p class="blank" id="codes-blank" hidden>Abhi koi code live nahi hai. Naya code aane par yahin dikhega — page refresh karne ki zarurat nahi.</p>
+
+      <h2 class="cap">Tumne kya liya</h2>
+      <ul class="ledger ledger--taken" id="my-redeems"></ul>
+      <p class="blank" id="mine-blank" hidden>Tumne abhi tak koi code nahi liya. Upar wale box me code daalo.</p>
+    </section>
+
+    <section class="view" id="v-you" aria-label="You" hidden>
+      <form class="card" id="me-form">
+        <span class="field__label">Tumhara naam</span>
+        <input name="name" maxlength="40" required>
+        <span class="field__label">About</span>
+        <input name="about" maxlength="140">
+        <button class="btn btn--go" type="submit">Save</button>
+      </form>
+
+      <h2 class="cap">Kaun ho tum</h2>
+      <ul class="rows" id="people-rows"></ul>
+
+      <h2 class="cap">Pasand</h2>
+      <label class="switch">
+        <input type="checkbox" id="tgl-motion">
+        <span>Motion kam karo</span>
+      </label>
+
+      <h2 class="cap">Admin</h2>
+      <div class="card" id="admin-gate"></div>
+    </section>
+
+    <section class="view" id="v-admin" aria-label="Admin panel" hidden>
+      <div class="stats" id="admin-stats"></div>
+
+      <form class="card" id="code-form">
+        <span class="field__label">Naya code</span>
+        <input name="code" placeholder="RTZENE-0000-0000" required class="mono" autocapitalize="characters">
+        <span class="field__label">Kya milega</span>
+        <input name="reward" placeholder="1000 UC" required>
+        <span class="field__label">Kiske liye (optional)</span>
+        <input name="note" placeholder="Scrim winners ko">
+        <div class="pair">
+          <label><span class="field__label">Kitne log</span><input name="maxUses" type="number" min="1" value="1"></label>
+          <label><span class="field__label">Kitne ghante</span><input name="hours" type="number" min="1" value="24"></label>
+        </div>
+        <button class="btn btn--go" type="submit">Code banao</button>
+        <p class="hint" id="code-msg" role="status" hidden></p>
+      </form>
+
+      <h2 class="cap">Saare codes</h2>
+      <ul class="admin-list" id="admin-codes"></ul>
+
+      <h2 class="cap">Kaun kya le gaya</h2>
+      <ul class="ledger" id="admin-ledger"></ul>
+    </section>
+
+  </main>
+
+  <div class="pane-hint" id="pane-hint" hidden>
+    <p>Left se ek chat chuno. Codes tab se redeem code bhi le sakte ho.</p>
+  </div>
+
+  <nav class="tabs" id="tabs" aria-label="Sections">
+    <button type="button" data-go="chats"  aria-current="page"><svg class="ic"><use href="#i-chat"></use></svg><span>Chats</span></button>
+    <button type="button" data-go="status"><svg class="ic"><use href="#i-ring"></use></svg><span>Status</span></button>
+    <button type="button" data-go="codes"><svg class="ic"><use href="#i-ticket"></use></svg><span>Codes</span></button>
+    <button type="button" data-go="you"><svg class="ic"><use href="#i-user"></use></svg><span>You</span></button>
+  </nav>
+
+</div>
+
+<div id="sheet-root" class="sheet-root" hidden></div>
+<div id="toast-root" class="toast-root" aria-live="polite"></div>
+
+<script src="/app.js"></script>
+</body>
+</html>

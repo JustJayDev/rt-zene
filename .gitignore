@@ -1,0 +1,13 @@
+# runtime data — the SQLite database holds real messages and redeemed codes.
+# Never commit it: it reseeds itself on first boot.
+data/
+*.db
+*.db-wal
+*.db-shm
+*.db.pre-seed
+
+# tooling noise
+node_modules/
+npm-debug.log*
+.DS_Store
+*.log
